@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MBJ Arrivals</title>
+    <style>
+        body {
+            background: #000;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            min-height: 100vh;
+        }
+        #mbj-arrivals-board {
+            background: #000;
+            color: #ffeb3b;
+            font-family: 'Courier New', Courier, monospace;
+            border: 2px solid #222;
+            border-radius: 6px;
+            padding: 16px;
+            width: 100%;
+            max-width: 480px;
+            box-sizing: border-box;
+        }
+        .board-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #222;
+            padding-bottom: 8px;
+            margin-bottom: 8px;
+        }
+        .title { font-weight: bold; letter-spacing: 3px; font-size: 14px; }
+        .board-meta { display: flex; align-items: center; gap: 8px; }
+        .blink { color: #f44336; font-size: 10px; animation: pulse 1s infinite; }
+        .source-badge {
+            font-size: 9px;
+            padding: 2px 6px;
+            border-radius: 3px;
+            letter-spacing: 1px;
+            color: #000;
+            background: #4caf50;
+        }
+        .col-headers {
+            display: grid;
+            grid-template-columns: 1.2fr 2fr 1fr 1.4fr;
+            font-size: 9px;
+            color: #444;
+            letter-spacing: 1px;
+            padding-bottom: 6px;
+        }
+        .flight-row {
+            display: grid;
+            grid-template-columns: 1.2fr 2fr 1fr 1.4fr;
+            font-size: 12px;
+            padding: 6px 0;
+            border-bottom: 1px solid #111;
+        }
+        .flight-row:last-child { border-bottom: none; }
+        .on-time   { color: #4caf50; }
+        .delayed   { color: #f44336; }
+        .landed    { color: #888; }
+        .cancelled { color: #f44336; text-decoration: line-through; }
+        .early     { color: #2196f3; }
+        .loading   { color: #444; font-size: 11px; padding: 12px 0; text-align: center; }
+        .board-footer {
+            text-align: center;
+            font-size: 9px;
+            color: #333;
+            margin-top: 10px;
+            border-top: 1px solid #111;
+            padding-top: 8px;
+        }
+        @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0} }
+    </style>
+</head>
+<body>
+    <div id="mbj-arrivals-board">
+      <div class="board-header">
+        <span class="title">MBJ ARRIVALS</span>
+        <div class="board-meta">
+          <span class="blink">● LIVE</span>
+          <span id="source-badge" class="source-badge">AERODATABOX</span>
+        </div>
+      </div>
+      <div class="col-headers">
+        <span>FLIGHT</span><span>FROM</span><span>TIME</span><span>STATUS</span>
+      </div>
+      <div id="flight-list">
+        <div class="loading">Scanning frequencies...</div>
+      </div>
+      <div class="board-footer">
+        SANGSTER INTERNATIONAL · Updated <span id="last-updated">--:--</span>
+      </div>
+    </div>
+
+    <script>
+      function statusClass(s) {
+        if (!s) return "on-time";
+        const u = s.toUpperCase();
+        if (u.includes("DELAY"))  return "delayed";
+        if (u.includes("LAND"))   return "landed";
+        if (u.includes("CANCEL")) return "cancelled";
+        if (u.includes("EARLY"))  return "early";
+        return "on-time";
+      }
+
+      async function loadFlights() {
+        const listEl  = document.getElementById("flight-list");
+        const timeEl  = document.getElementById("last-updated");
+
+        try {
+          const res = await fetch("flights.json?t=" + Date.now());
+          if (!res.ok) throw new Error("HTTP " + res.status);
+          const data = await res.json();
+
+          if (!data.flights || data.flights.length === 0) {
+            listEl.innerHTML = '<div class="loading">No active arrivals found</div>';
+            return;
+          }
+
+          listEl.innerHTML = data.flights.map(f => `
+            <div class="flight-row">
+              <span>${f.flight}</span>
+              <span>${f.from}</span>
+              <span>${f.time}</span>
+              <span class="${statusClass(f.status)}">${f.status}</span>
+            </div>`).join("");
+
+          if (data.ts) {
+            const d = new Date(data.ts);
+            timeEl.textContent = d.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
+          }
+        } catch (err) {
+          listEl.innerHTML = `<div class="loading">Signal lost — ${err.message}</div>`;
+        }
+      }
+
+      loadFlights();
+    </script>
+</body>
+</html>
